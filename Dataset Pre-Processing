@@ -1,0 +1,78 @@
+!pip install shap
+
+import pandas as pd
+from datetime import datetime
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import shap
+from scipy.stats import norm
+
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, roc_auc_score, precision_recall_curve, average_precision_score
+from sklearn.tree import plot_tree
+
+from google.colab import drive, files
+drive.mount('/content/drive')
+
+full_dataset = pd.read_excel('/content/drive/MyDrive/Dissertação/dataset ndvi/satveg_coffee_merged_ndvi.xlsx')
+
+# Separate base information and NVDI columns
+base_columns = ['Index', 'Coffee (1-YES; 0-NO)', 'Long', 'Lat']
+ndvi_columns = [col for col in full_dataset.columns if col not in base_columns]
+
+# Filter last 6 years of NDVI data
+ndvi_recent_cols = [col for col in ndvi_columns if datetime.strptime(col, "%d/%m/%Y").year >= 2019]
+
+# Create a new DataFrame with base info + filtered NDVI columns
+filtered_dataset = full_dataset[base_columns + ndvi_recent_cols]
+
+# Show resulting columns
+filtered_dataset.head(), filtered_dataset.shape
+
+# Separate coffee and non-coffee subsets
+coffee_df = filtered_dataset[filtered_dataset['Coffee (1-YES; 0-NO)'] == 1]
+non_coffee_df = filtered_dataset[filtered_dataset['Coffee (1-YES; 0-NO)'] == 0]
+
+# Prepare time axis from the column headers
+ndvi_dates = filtered_dataset.columns[4:]
+ndvi_dates_dt = [datetime.strptime(date, "%d/%m/%Y") for date in ndvi_dates]
+
+# Calculate average NDVI of both classes
+avg_coffee = coffee_df[ndvi_dates].mean()
+avg_non_coffee = non_coffee_df[ndvi_dates].mean()
+
+# Plot the graph
+plt.figure(figsize=(12, 5))
+plt.plot(ndvi_dates_dt, avg_coffee, label='Coffee', color='green')
+plt.plot(ndvi_dates_dt, avg_non_coffee, label='Non-Coffee', color='brown')
+plt.title('Coffee vs Non-Coffee NDVI Average')
+plt.xlabel('Date')
+plt.ylabel('NDVI')
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Coffee samples graph
+plt.figure(figsize=(12, 5))
+for _, row in coffee_df.iterrows():
+    plt.plot(ndvi_dates_dt, row[ndvi_dates], color='green', alpha=0.3)
+plt.title('NDVI Time Series – COFFEE Samples')
+plt.xlabel('Date')
+plt.ylabel('NDVI')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Non-coffee samples graph
+plt.figure(figsize=(12, 5))
+for _, row in non_coffee_df.iterrows():
+    plt.plot(ndvi_dates_dt, row[ndvi_dates], color='brown', alpha=0.3)
+plt.title('NDVI Time Series – NON-COFFEE Samples')
+plt.xlabel('Date')
+plt.ylabel('NDVI')
+plt.grid(True)
+plt.tight_layout()
+plt.show()

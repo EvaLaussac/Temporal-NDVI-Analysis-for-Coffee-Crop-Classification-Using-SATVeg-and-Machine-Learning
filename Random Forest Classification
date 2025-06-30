@@ -1,0 +1,84 @@
+# Using Random Forest to classify coffee by NDVI spectrum
+# Features and labels
+X = filtered_dataset[ndvi_dates].values
+y = filtered_dataset['Coffee (1-YES; 0-NO)'].values
+
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# Train Random Forest
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+# Predict and evaluate
+y_pred = rf.predict(X_test)
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+# ANALYSIS
+# Confusion Matrix
+conf_matrix = confusion_matrix(y_test, y_pred)
+conf_matrix_percent = conf_matrix / conf_matrix.sum() * 100
+sns.heatmap(conf_matrix_percent, annot=True, fmt='2f', cmap='Blues',
+            xticklabels=['Non-Coffee', 'Coffee'],
+            yticklabels=['Non-Coffee', 'Coffee'])
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix (%)')
+plt.show()
+
+#ROC and AUC Curves
+probs = rf.predict_proba(X_test)[:, 1]
+
+fpr, tpr, _ = roc_curve(y_test, probs)
+roc_auc = roc_auc_score(y_test, probs)
+plt.figure(figsize=(8, 5))
+plt.plot(fpr, tpr, color='darkblue', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("Receiver Operating Characteristic (ROC)")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+#Heatmap
+report = classification_report(y_test, y_pred, output_dict=True)
+sns.heatmap(pd.DataFrame(report).iloc[:-1, :].T, annot=True, cmap='Reds')
+plt.title('Classification Report Heatmap')
+plt.tight_layout()
+plt.show()
+
+# Cross-validation
+cv_scores = cross_val_score(rf, X, y, cv=20)
+print("Cross-validation accuracy scores:", cv_scores)
+print("Mean CV Accuracy: %.2f%%" % (cv_scores.mean() * 100))
+
+# Feature importance
+importances = rf.feature_importances_
+feature_importance_df = pd.DataFrame({
+    'Date': ndvi_dates_dt,
+    'Importance': importances
+}).sort_values(by='Importance', ascending=False)
+
+print("\Most Important NDVI dates/features:")
+print(feature_importance_df.head(10))
+
+plt.figure(figsize=(12,6))
+plt.bar(feature_importance_df['Date'].dt.strftime('%Y-%m'), feature_importance_df['Importance'])
+plt.xticks(rotation=90)
+plt.ylabel("Feature Importance")
+plt.title("NDVI Time-series Feature Importance (Random Forest)")
+plt.tight_layout()
+plt.show()
+
+# Visualizing one decision tree
+plt.figure(figsize=(12,12))
+plot_tree(rf.estimators_[0], feature_names=[d.strftime("%Y-%m") for d in ndvi_dates_dt],
+          filled=False, rounded=True, max_depth=3)
+plt.title("Visualization of One Decision Tree in the Random Forest")
+plt.show()

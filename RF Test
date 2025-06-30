@@ -1,0 +1,39 @@
+#Testing classification code
+
+print("SELECT EXCEL SAMPLE FROM SATVEG EMBRAPA: ")
+uploaded = files.upload()
+filename = next(iter(uploaded))
+print(f"\nUploaded file: {filename}")
+
+# Catching raw data
+excel_file = pd.ExcelFile(filename)
+sheet_name = excel_file.sheet_names[0]
+data_sample = pd.read_excel(excel_file, sheet_name=sheet_name)
+#print("\nRAW NDVI DATA:")
+#print(data_sample.head())
+
+data_sample_transpose = np.transpose(data_sample)
+
+# Get only NDVI values (second row [1], fifth column [4] to the end)
+date_row = data_sample_transpose.iloc[0, 4:]
+valid_columns = []
+
+for i, date_str in enumerate(date_row):
+    try:
+        date_obj = pd.to_datetime(str(date_str), errors='coerce')
+        if date_obj and date_obj.year >= 2019:
+            valid_columns.append(i + 4)  # Offset by 4 to skip non-NDVI datas
+    except:
+        continue
+
+# Filter NDVI values using valid columns only
+ndvi_sample_values = data_sample_transpose.iloc[1, valid_columns].astype(float).values
+ndvi_sample_values = ndvi_sample_values.reshape(1, -1)
+
+sample_prediction = rf.predict(ndvi_sample_values)[0]
+class_prob = rf.predict_proba(ndvi_sample_values)[0]
+
+# Output result
+label = "\nSAMPLE CLASSIFIED AS COFFEE✅" if sample_prediction == 1 else "\n\nSAMPLE CLASSIFIED AS NON-COFFEE❌"
+print(f"\n\nPredicted Class: {label}")
+print(f"\nCLASS PROBABILITIES: \nCOFFEE = {class_prob[1]:.2f}, NON-COFFEE = {class_prob[0]:.2f}")
